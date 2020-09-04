@@ -18,7 +18,7 @@ namespace AutoPowerManagementForShelfDevices
         {
             _logger = logger;
 
-            NetworkChange.NetworkAvailabilityChanged += (sender, args) => HandleConnectedInterfaces();
+            NetworkChange.NetworkAddressChanged += (sender, args) => HandleConnectedInterfaces();
         }
 
         public void Init()
@@ -44,10 +44,8 @@ namespace AutoPowerManagementForShelfDevices
                 }
             }
 
-            _logger.LogInformation($"Found {newConnectedPorts} connected ports");
-            
             // If no network adapter is up, the cable is unplugged
-            if (newConnectedPorts == 0)
+            if (newConnectedPorts == 0 && _connectedPorts == 1)
             {
                 OnNetworkAdaptersStatusChange?.Invoke(false);
                 _logger.LogInformation($"Sending status update event. Attached: false");
