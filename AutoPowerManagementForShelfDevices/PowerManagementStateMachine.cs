@@ -127,7 +127,7 @@ namespace AutoPowerManagementForShelfDevices
 
         private void LogState(State state)
         {
-            _logger.LogDebug($"Entering {nameof(state)} state");
+            _logger.LogDebug($"Entering {Enum.GetName(state)} state");
         }
     }
 }
