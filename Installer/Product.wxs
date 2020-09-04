@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<Product Id="*" Name="AutoPowerManagementForShelfDevices" Language="1033" Version="1.0" Manufacturer="Soeren Busse" UpgradeCode="a98d59ff-ec19-4ce5-836b-67c824e3d99b">
+		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+		<MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+		<MediaTemplate EmbedCab="yes" />
+
+		<Directory Id="TARGETDIR" Name="SourceDir">
+			<Directory Id="ProgramFilesFolder">
+				<Directory Id="INSTALLFOLDER" Name="AutoPowerManagementForShelfDevices" />
+			</Directory>
+		</Directory>
+
+		<Feature Id="ProductFeature" Title="AutoPowerManagementForShelfDevices" Level="1">
+			<ComponentRef Id="InstallService" />
+			<ComponentRef Id="ComponentAppSettings" />
+			<!--<ComponentRef Id="ComponentExecutable" /> -->
+			<ComponentRef Id="ComponentCLRCompression" />
+			<ComponentRef Id="ComponentCLRJit" />
+			<ComponentRef Id="ComponentCoreCLR" />
+			<ComponentRef Id="ComponentMSCordaCore" />
+		</Feature>
+	</Product>
+
+	<Fragment>
+        <DirectoryRef Id="INSTALLFOLDER">
+            <Directory Id="ExecutableDirectory">
+					<Component Id="ComponentAppSettings" Guid="{D38014B8-27D2-43A1-948F-56E2DBFCD6A4}">
+						<File Id="AppSettingsFile" KeyPath="yes" Source="$(var.TargetDir)\appsettings.json" />
+					</Component>
+					<!--<Component Id="ComponentExecutable" Guid="{102186CB-942A-4D08-98C9-59F731C14B41}">
+						<File Id="ExecutableFile" KeyPath="yes" Source="$(var.TargetDir)\AutoPowerManagementForShelfDevices.exe" />
+					</Component>-->
+					<Component Id="ComponentCLRCompression" Guid="{DD2702A3-47EC-4815-AF47-8B625B446629}">
+						<File Id="CLRCompressionFile" KeyPath="yes" Source="$(var.TargetDir)\clrcompression.dll" />
+					</Component>
+					<Component Id="ComponentCLRJit" Guid="{43598A3E-AA80-488B-AD02-49196A61B1A2}">
+						<File Id="CLRJitFile" KeyPath="yes" Source="$(var.TargetDir)\clrjit.dll" />
+					</Component>
+					<Component Id="ComponentCoreCLR" Guid="{E3FD88AB-9ADE-4A91-99D2-C5B487571CE9}">
+						<File Id="CoreCLRFile" KeyPath="yes" Source="$(var.TargetDir)\coreclr.dll" />
+					</Component>
+					<Component Id="ComponentMSCordaCore" Guid="{2FAF9D7A-099A-4354-93E5-19F7EB962580}">
+						<File Id="MSCordaCoreFile" KeyPath="yes" Source="$(var.TargetDir)\mscordaccore.dll" />
+					</Component>
+            </Directory>
+        </DirectoryRef>
+	</Fragment>
+
+	<Fragment>
+		<Component Id="InstallService" Directory="INSTALLFOLDER">
+			<File Id="ServiceExecutableFile" KeyPath="yes" Source="$(var.TargetDir)\AutoPowerManagementForShelfDevices.exe" />
+			<ServiceInstall Id="ServiceInstaller"
+                        Type="ownProcess"
+                        Vital="yes"
+                        Name="AutoPowerManagementForShelfDevicesService"
+                        DisplayName="AutoPowerManagementForShelfDevices Service"
+                        Description="Handles the Power Management for Shelf Devices"
+                        Start="auto"
+                        Account="LocalSystem"
+                        ErrorControl="normal" />
+
+			<ServiceControl Id="StartService"
+                        Name="AutoPowerManagementForShelfDevicesService"
+                        Start="install"
+                        Wait="no" />
+        	
+			<ServiceControl Id="StopService"
+                        Name="AutoPowerManagementForShelfDevicesService"
+                        Stop="uninstall"
+                        Remove="uninstall"
+                        Wait="yes" />
+		</Component>
+	</Fragment>
+</Wix>

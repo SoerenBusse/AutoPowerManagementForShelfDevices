@@ -20,7 +20,8 @@ namespace AutoPowerManagementForShelfDevices
         private readonly NetworkAdapters _networkAdapters;
         private readonly IHostLifetime _hostLifetime;
 
-        public Worker(ILogger<Worker> logger, SettingsBase settings, PowerManagementStateMachine powerManagementStateMachine, Lid lid,
+        public Worker(ILogger<Worker> logger, SettingsBase settings,
+            PowerManagementStateMachine powerManagementStateMachine, Lid lid,
             NetworkAdapters networkAdapters,
             IHostLifetime hostLifetime)
         {
