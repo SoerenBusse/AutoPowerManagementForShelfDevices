@@ -2,6 +2,7 @@ using System;
 using System.Timers;
 using AutoPowerManagementForShelfDevices.Enums;
 using AutoPowerManagementForShelfDevices.Interop;
+using AutoPowerManagementForShelfDevices.Settings;
 using Microsoft.Extensions.Logging;
 using Stateless;
 using Stateless.Graph;
@@ -11,17 +12,15 @@ namespace AutoPowerManagementForShelfDevices
 {
     public class PowerManagementStateMachine
     {
-        public double TimeoutLidClosed { get; set; } = 5 * 60 * 1000;
-        public double TimeoutLidClosedNetworkAttached { get; set; } = 5 * 60 * 1000;
-        public double TimeoutLoggedOut { get; set; } = 120 * 60 * 1000;
-        public double TimeoutLoggedOutNetworkAttached { get; set; } = 5 * 60 * 1000;
+        private readonly ILogger<PowerManagementStateMachine> _logger;
+        private readonly SettingsBase _settings;
 
         private readonly StateMachine<State, Trigger> _machine;
-        private readonly ILogger<PowerManagementStateMachine> _logger;
 
-        public PowerManagementStateMachine(ILogger<PowerManagementStateMachine> logger)
+        public PowerManagementStateMachine(ILogger<PowerManagementStateMachine> logger, SettingsBase settings)
         {
             _logger = logger;
+            _settings = settings;
 
             // Create timer for state machine
             var timer = new Timer
@@ -47,21 +46,21 @@ namespace AutoPowerManagementForShelfDevices
                 .Permit(Trigger.NetworkAttach, State.LidClosedNetworkAttached)
                 .Permit(Trigger.TimerExpired, State.LoggedOut)
                 .OnEntry(() => LogState(State.LidClosed))
-                .OnEntry(() => ResetAndStartTimer(timer, TimeoutLidClosed));
+                .OnEntry(() => ResetAndStartTimer(timer, _settings.TimeoutLidClosed));
 
             _machine.Configure(State.LidClosedNetworkAttached)
                 .Permit(Trigger.LidOpen, State.LidOpenNetworkAttached)
                 .Permit(Trigger.NetworkUnplug, State.LidClosed)
                 .Permit(Trigger.TimerExpired, State.Shutdown)
                 .OnEntry(() => LogState(State.LidClosedNetworkAttached))
-                .OnEntry(() => ResetAndStartTimer(timer, TimeoutLidClosedNetworkAttached));
+                .OnEntry(() => ResetAndStartTimer(timer, _settings.TimeoutLidClosedNetworkAttached));
 
             _machine.Configure(State.LoggedOut)
                 .Permit(Trigger.LidOpen, State.LidOpen)
                 .Permit(Trigger.NetworkAttach, State.LoggedOutNetworkAttached)
                 .Permit(Trigger.TimerExpired, State.Sleep)
                 .OnEntry(() => LogState(State.LoggedOut))
-                .OnEntry(() => ResetAndStartTimer(timer, TimeoutLoggedOut))
+                .OnEntry(() => ResetAndStartTimer(timer, _settings.TimeoutLoggedOut))
                 .OnEntry(Logout.LogoutAllUsers);
 
             _machine.Configure(State.LoggedOutNetworkAttached)
@@ -69,7 +68,7 @@ namespace AutoPowerManagementForShelfDevices
                 .Permit(Trigger.NetworkUnplug, State.LoggedOut)
                 .Permit(Trigger.TimerExpired, State.Shutdown)
                 .OnEntry(() => LogState(State.LoggedOutNetworkAttached))
-                .OnEntry(() => ResetAndStartTimer(timer, TimeoutLoggedOutNetworkAttached));
+                .OnEntry(() => ResetAndStartTimer(timer, _settings.TimeoutLoggedOutNetworkAttached));
 
             _machine.Configure(State.Shutdown)
                 .OnEntry(() => LogState(State.Shutdown))

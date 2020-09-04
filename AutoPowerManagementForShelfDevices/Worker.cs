@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoPowerManagementForShelfDevices.Interop;
+using AutoPowerManagementForShelfDevices.Settings;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using Microsoft.Extensions.Logging;
@@ -13,16 +14,18 @@ namespace AutoPowerManagementForShelfDevices
     public class Worker : BackgroundService
     {
         private readonly ILogger<Worker> _logger;
+        private readonly SettingsBase _settings;
         private readonly PowerManagementStateMachine _powerManagementStateMachine;
         private readonly Lid _lid;
         private readonly NetworkAdapters _networkAdapters;
         private readonly IHostLifetime _hostLifetime;
 
-        public Worker(ILogger<Worker> logger, PowerManagementStateMachine powerManagementStateMachine, Lid lid,
+        public Worker(ILogger<Worker> logger, SettingsBase settings, PowerManagementStateMachine powerManagementStateMachine, Lid lid,
             NetworkAdapters networkAdapters,
             IHostLifetime hostLifetime)
         {
             _logger = logger;
+            _settings = settings;
             _powerManagementStateMachine = powerManagementStateMachine;
             _lid = lid;
             _networkAdapters = networkAdapters;
@@ -33,6 +36,9 @@ namespace AutoPowerManagementForShelfDevices
         {
             var tcs = new TaskCompletionSource<bool>();
 
+            // Load Registry Keys
+            _settings.Load();
+            
             // Check if lifetime is a windows service
             if (!(_hostLifetime is WindowsServiceLifetime))
             {
