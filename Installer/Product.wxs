@@ -15,7 +15,6 @@
 		<Feature Id="ProductFeature" Title="AutoPowerManagementForShelfDevices" Level="1">
 			<ComponentRef Id="InstallService" />
 			<ComponentRef Id="ComponentAppSettings" />
-			<!--<ComponentRef Id="ComponentExecutable" /> -->
 			<ComponentRef Id="ComponentCLRCompression" />
 			<ComponentRef Id="ComponentCLRJit" />
 			<ComponentRef Id="ComponentCoreCLR" />
@@ -29,9 +28,6 @@
 					<Component Id="ComponentAppSettings" Guid="{D38014B8-27D2-43A1-948F-56E2DBFCD6A4}">
 						<File Id="AppSettingsFile" KeyPath="yes" Source="$(var.TargetDir)\appsettings.json" />
 					</Component>
-					<!--<Component Id="ComponentExecutable" Guid="{102186CB-942A-4D08-98C9-59F731C14B41}">
-						<File Id="ExecutableFile" KeyPath="yes" Source="$(var.TargetDir)\AutoPowerManagementForShelfDevices.exe" />
-					</Component>-->
 					<Component Id="ComponentCLRCompression" Guid="{DD2702A3-47EC-4815-AF47-8B625B446629}">
 						<File Id="CLRCompressionFile" KeyPath="yes" Source="$(var.TargetDir)\clrcompression.dll" />
 					</Component>
