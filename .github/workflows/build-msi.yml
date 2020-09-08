@@ -34,3 +34,33 @@ jobs:
       with:
         name: MSIPublish
         path: Installer\bin\AutoPowerManagementForShelfDevice.msi
+  
+  create-release:
+    runs-on: windows-2019
+    needs: [build]
+    if: contains(github.ref, "release")
+    steps:
+      - name: Download math result for job 1
+        uses: actions/download-artifact@v2
+        with:
+          name: MSIPublish
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} 
+          asset_path: Installer\bin\AutoPowerManagementForShelfDevice.msi
+          asset_name: AutoPowerManagementForShelfDevice.msi
+          asset_content_type: application/x-msi
