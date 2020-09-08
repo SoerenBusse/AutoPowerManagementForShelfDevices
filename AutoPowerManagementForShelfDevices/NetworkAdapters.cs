@@ -15,14 +15,14 @@ namespace AutoPowerManagementForShelfDevices
         public NetworkAdapters(ILogger<NetworkAdapters> logger)
         {
             _logger = logger;
-
-            NetworkChange.NetworkAddressChanged += (sender, args) => HandleConnectedInterfaces();
         }
 
         public void Init()
         {
             _logger.LogInformation("Get current network adapters status");
             HandleConnectedInterfaces();
+            
+            NetworkChange.NetworkAddressChanged += (sender, args) => HandleConnectedInterfaces();
         }
 
         private void HandleConnectedInterfaces()
