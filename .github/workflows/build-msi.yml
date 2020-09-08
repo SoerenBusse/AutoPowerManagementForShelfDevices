@@ -25,7 +25,12 @@ jobs:
       run: dotnet restore
     - name: Build
       run: dotnet publish -r win-x64 -c Release /p:PublishSingleFile=true
+    - name: Build MSI
+      run: |
+        "%WIX%bin\candle.exe" Installer\*.wxs -out Installer\Installer.wix.obj -dTargetDir="AutoPowerManagementForShelfDevices\bin\Release\netcoreapp5.0\win-x64\publish"
+        md Installer\bin
+        "%WIX%bin\light.exe" -b "Installer\bin" -out "Installer\bin\AutoPowerManagementForShelfDevice.msi" Installer\Installer.wix.obj
     - uses: actions/upload-artifact@v2
       with:
-        name: NetCorePublish
-        path: AutoPowerManagementForShelfDevices\bin\Release\netcoreapp5.0\win-x64\publish
+        name: MSIPublish
+        path: Installer\bin\AutoPowerManagementForShelfDevice.msi
