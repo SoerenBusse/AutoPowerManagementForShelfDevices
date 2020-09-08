@@ -67,8 +67,6 @@ namespace AutoPowerManagementForShelfDevices
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             var tcs = new TaskCompletionSource<bool>();
-            
-            await Task.Delay(20000, stoppingToken);
 
             // Load Registry Keys
             _settings.Load();
