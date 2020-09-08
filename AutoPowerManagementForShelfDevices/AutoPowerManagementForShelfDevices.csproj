@@ -4,6 +4,7 @@
         <TargetFramework>netcoreapp5.0</TargetFramework>
         <UserSecretsId>dotnet-AutoPowerManagementForShelfDevices-56B99D5A-E9B5-48ED-94ED-E074AF3CEEE3</UserSecretsId>
         <LangVersion>9</LangVersion>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>

@@ -20,8 +20,7 @@ namespace AutoPowerManagementForShelfDevices
             var lastUnixBootTimeInRegistry = RegistryUtils.ParseRegistryKey<long>(baseKey, LastBootTime, 0);
 
             // Set new last boot time
-            DateTime currentLastBootTime = WorkstationStatistics.GetLastBootTime() ??
-                                           throw new ApplicationException("Cannot get last boot time");
+            DateTime currentLastBootTime = WorkstationStatistics.GetLastBootTime();
             long currentLastUnixBootTime = ((DateTimeOffset) currentLastBootTime).ToUnixTimeSeconds();
 
             baseKey.SetValue(LastBootTime, currentLastUnixBootTime);
@@ -39,7 +38,7 @@ namespace AutoPowerManagementForShelfDevices
         private static RegistryKey OpenRegistryBaseKey()
         {
             RegistryKey localMachine = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
-            RegistryKey baseKey = localMachine.OpenSubKey(RegistryBaseLocation, true);
+            RegistryKey? baseKey = localMachine.OpenSubKey(RegistryBaseLocation, true);
 
             // We cannot find the key in 64bit view
             if (baseKey == null)
@@ -51,7 +50,8 @@ namespace AutoPowerManagementForShelfDevices
 
             // Key weren't found. We need to create it
             if (baseKey == null)
-                localMachine.CreateSubKey(RegistryBaseLocation);
+                baseKey = localMachine.CreateSubKey(RegistryBaseLocation) ??
+                          throw new ApplicationException($"Cannot create registry key {RegistryBaseLocation}.");
 
             return baseKey;
         }

@@ -1,5 +1,4 @@
-﻿using System;
-using AutoPowerManagementForShelfDevices.Utils;
+﻿using AutoPowerManagementForShelfDevices.Utils;
 using Microsoft.Win32;
 
 namespace AutoPowerManagementForShelfDevices.Settings
@@ -31,7 +30,7 @@ namespace AutoPowerManagementForShelfDevices.Settings
         protected override void Refresh()
         {
             // Try to open base registry key
-            RegistryKey baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+            RegistryKey? baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             baseKey = baseKey.OpenSubKey(RegistryBaseLocation);
 
             // We cannot find the key in 64bit view
@@ -48,8 +47,7 @@ namespace AutoPowerManagementForShelfDevices.Settings
 
             TimeoutLidClosed = RegistryUtils.ParseRegistryKey(baseKey, RegistryTimeoutLidClosedKey,
                 DefaultTimeoutLidClosed);
-
-
+            
             TimeoutLidClosedNetworkAttached = RegistryUtils.ParseRegistryKey(baseKey,
                 RegistryTimeoutLidClosedNetworkAttachedKey,
                 DefaultTimeoutLidClosedNetworkAttached);

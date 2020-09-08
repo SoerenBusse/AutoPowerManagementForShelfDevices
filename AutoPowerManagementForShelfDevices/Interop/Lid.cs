@@ -1,94 +1,57 @@
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
+using AutoPowerManagementForShelfDevices.Interop.Native;
 
 namespace AutoPowerManagementForShelfDevices.Interop
 {
-    // Thanks to "rowandh":
-    // https://github.com/rowandh/lidstatusservice/blob/master/LidStatusService/Lid.cs
+    // Inspired https://github.com/rowandh/lidstatusservice/blob/master/LidStatusService/Lid.cs by "rowandh":
     public class Lid
     {
-        [StructLayout(LayoutKind.Sequential, Pack = 4)]
-        private readonly struct PowerBroadcastSetting
-        {
-            public readonly Guid PowerSetting;
-            public readonly uint DataLength;
-            public readonly byte Data;
-        }
-
-        [DllImport(@"User32", SetLastError = true, EntryPoint = "RegisterPowerSettingNotification",
-            CallingConvention = CallingConvention.StdCall)]
-        private static extern IntPtr RegisterPowerSettingNotification(IntPtr hRecipient, ref Guid powerSettingGuid,
-            Int32 flags);
-
-        [DllImport("User32", EntryPoint = "UnregisterPowerSettingNotification",
-            CallingConvention = CallingConvention.StdCall)]
-        private static extern bool UnregisterPowerSettingNotification(IntPtr handle);
-
-        [DllImport("advapi32.dll", SetLastError = true)]
-        private static extern IntPtr RegisterServiceCtrlHandlerEx(string lpServiceName, ServiceControlHandlerEx cbex,
-            IntPtr context);
-
-        private const int DeviceNotifyServiceHandle = 0x00000001;
-        private const int ServiceControlPowerEvent = 0x0000000D;
-        private const int PowerButtonPowerSettingChange = 0x8013;
-
-        private static Guid _guidLidSwitchStateChange =
-            new Guid(0xBA3E0F4D, 0xB817, 0x4094, 0xA2, 0xD1, 0xD5, 0x63, 0x79, 0xE6, 0xA0, 0xF3);
-
-        private delegate IntPtr ServiceControlHandlerEx(int control, int eventType, IntPtr eventData, IntPtr context);
-
-        private event Action<bool> LidEventHandler;
+        private static Guid _lidSwitchStateChangeGuid = new Guid("ba3e0f4d-b817-4094-a2d1-d56379e6a0f3");
 
         private IntPtr _powerSettingsNotificationHandle;
-        private readonly ServiceControlHandlerEx _serviceControlHandler;
 
-        public Lid()
+        public event EventHandler<LidStateChangedEventArgs>? LidStateChanged;
+
+        public void RegisterLidEventNotifications(IntPtr serviceHandle, string serviceName)
         {
-            // Assign callback delegate as member variable to prevent error with garbage collection
-            _serviceControlHandler = MessageHandler;
+            _powerSettingsNotificationHandle = User32.RegisterPowerSettingNotification(serviceHandle,
+                ref _lidSwitchStateChangeGuid, User32.DeviceNotifyServiceHandle);
+            if (_powerSettingsNotificationHandle == IntPtr.Zero)
+                throw new Win32Exception("Registering power settings notification handle failed.");
         }
 
-        public bool RegisterLidEventNotifications(IntPtr serviceHandle, string serviceName,
-            Action<bool> lidEventHandler)
+        public void UnregisterLidEventNotifications()
         {
-            LidEventHandler = lidEventHandler;
-
-            _powerSettingsNotificationHandle = RegisterPowerSettingNotification(serviceHandle,
-                ref _guidLidSwitchStateChange,
-                DeviceNotifyServiceHandle);
-
-            var serviceCtrlHandler = RegisterServiceCtrlHandlerEx(serviceName, _serviceControlHandler, IntPtr.Zero);
-
-            if (serviceCtrlHandler == IntPtr.Zero)
-                return false;
-
-            return _powerSettingsNotificationHandle != IntPtr.Zero;
+            if (!User32.UnregisterPowerSettingNotification(_powerSettingsNotificationHandle))
+                throw new Win32Exception("Unregistering power settings notification handle failed.");
         }
 
-        public bool UnregisterLidEventNotifications()
-        {
-            return _powerSettingsNotificationHandle != IntPtr.Zero &&
-                   UnregisterPowerSettingNotification(_powerSettingsNotificationHandle);
-        }
-
-        private IntPtr MessageHandler(int dwControl, int dwEventType, IntPtr lpEventData, IntPtr lpContext)
+        public int HandleLidEvents(int dwControl, int dwEventType, IntPtr lpEventData, IntPtr lpContext)
         {
             // If dwControl is SERVICE_CONTROL_POWEREVENT
             // and dwEventType is PBT_POWERSETTINGCHANGE
             // then lpEventData is a pointer to a POWERBROADCAST_SETTING struct
             // Ref. https://msdn.microsoft.com/en-us/library/ms683241(v=vs.85).aspx
-            if (dwControl == ServiceControlPowerEvent && dwEventType == PowerButtonPowerSettingChange)
+            if (dwControl == User32.ServiceControlPowerEvent && dwEventType == User32.PowerButtonPowerSettingChange)
             {
-                var ps = (PowerBroadcastSetting) Marshal.PtrToStructure(lpEventData, typeof(PowerBroadcastSetting));
+                var powerBroadcastSetting = (User32.PowerBroadcastSetting?) Marshal.PtrToStructure(lpEventData,
+                    typeof(User32.PowerBroadcastSetting));
+                if (powerBroadcastSetting == null)
+                    throw new Win32Exception(
+                        "Cannot not marshal power broadcast setting structure.");
 
-                if (ps.PowerSetting == _guidLidSwitchStateChange)
+                if (powerBroadcastSetting.Value.PowerSetting == _lidSwitchStateChangeGuid)
                 {
-                    var isLidOpen = ps.Data != 0;
-                    LidEventHandler?.Invoke(isLidOpen);
+                    bool lidOpen = powerBroadcastSetting.Value.Data != 0;
+                    LidStateChanged?.Invoke(this, new LidStateChangedEventArgs(lidOpen));
+
+                    return WindowsErrorCodes.Success;
                 }
             }
 
-            return IntPtr.Zero;
+            return WindowsErrorCodes.CallNotImplemented;
         }
     }
 }

@@ -125,30 +125,16 @@ namespace AutoPowerManagementForShelfDevices
             timer.Elapsed += (sender, args) => _machine.Fire(Trigger.TimerExpired);
         }
 
-        public void OnLidChange(bool open)
+        public void OnLidChange(bool lidOpen)
         {
-            _logger.LogDebug($"Received event: OnLidChange with parameters open: {open}");
-
-            if (open)
-            {
-                _machine.Fire(Trigger.LidOpen);
-                return;
-            }
-
-            _machine.Fire(Trigger.LidClose);
+            _logger.LogDebug($"Received event: OnLidChange with parameters open: {lidOpen}");
+            _machine.Fire(lidOpen ? Trigger.LidOpen : Trigger.LidClose);
         }
 
         public void OnNetworkChange(bool attached)
         {
             _logger.LogDebug($"Received event: OnNetworkChange with parameters attached: {attached}");
-
-            if (attached)
-            {
-                _machine.Fire(Trigger.NetworkAttach);
-                return;
-            }
-
-            _machine.Fire(Trigger.NetworkUnplug);
+            _machine.Fire(attached ? Trigger.NetworkAttach : Trigger.NetworkUnplug);
         }
 
         public void OnServiceRunningStatusUpdate(ServiceStatus serviceStatus)

@@ -1,13 +1,14 @@
 using System;
+using System.ComponentModel;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoPowerManagementForShelfDevices.Interop;
+using AutoPowerManagementForShelfDevices.Interop.Native;
 using AutoPowerManagementForShelfDevices.Settings;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using Microsoft.Extensions.Logging;
-using Stateless.Graph;
 
 namespace AutoPowerManagementForShelfDevices
 {
@@ -19,7 +20,12 @@ namespace AutoPowerManagementForShelfDevices
         private readonly Lid _lid;
         private readonly NetworkAdapters _networkAdapters;
         private readonly ServiceRunningStatus _serviceRunningStatus;
-        private readonly IHostLifetime _hostLifetime;
+        
+        private readonly WindowsServiceLifetime _windowsServiceLifetime;
+        private readonly IntPtr _serviceHandle;
+        
+        private readonly Advapi32.ServiceControlHandlerEx _serviceControlHandler;
+        private readonly Advapi32.ServiceControlHandlerEx _baseServiceControlHandler;
 
         public Worker(ILogger<Worker> logger, SettingsBase settings,
             PowerManagementStateMachine powerManagementStateMachine, Lid lid,
@@ -32,45 +38,53 @@ namespace AutoPowerManagementForShelfDevices
             _lid = lid;
             _networkAdapters = networkAdapters;
             _serviceRunningStatus = serviceRunningStatus;
-            _hostLifetime = hostLifetime;
+            _serviceControlHandler = HandleServiceControlEvents;
+
+            // Check if lifetime is a windows service
+            if (!(hostLifetime is WindowsServiceLifetime windowsServiceLifetime))
+                throw new NotSupportedException(
+                    $"Current Lifetime isn't supported: {_windowsServiceLifetime}. Require WindowsServiceLifetime");
+            _windowsServiceLifetime = windowsServiceLifetime;
+
+            // Retrieve service handle
+            _serviceHandle = GetServiceHandle();
+            
+            // Get access to service control handler of the ServiceBase class
+            MethodInfo? baseServiceControlHandlerMethod = windowsServiceLifetime.GetType().BaseType?.GetMethod(
+                "ServiceCommandCallbackEx",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (baseServiceControlHandlerMethod == null)
+                throw new ApplicationException("Could not find ServiceCommandCallbackEx method in ServiceBase class.");
+
+            _baseServiceControlHandler = (control, type, data, context) =>
+            {
+                return (int) (baseServiceControlHandlerMethod.Invoke(windowsServiceLifetime,
+                                  new object[] {control, type, data, context}) ??
+                              throw new ApplicationException("Unexpected return value from ServiceCommandCallbackEx."));
+            };
         }
 
-        protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             var tcs = new TaskCompletionSource<bool>();
+            
+            await Task.Delay(20000, stoppingToken);
 
             // Load Registry Keys
             _settings.Load();
 
-            // Check if lifetime is a windows service
-            if (!(_hostLifetime is WindowsServiceLifetime))
-            {
-                throw new NotSupportedException(
-                    $"Current Lifetime isn't supported: {_hostLifetime}. Require WindowsServiceLifetime");
-            }
-
             // Check service running status and apply current status to state machine
             _serviceRunningStatus.InitStatus();
             _powerManagementStateMachine.OnServiceRunningStatusUpdate(_serviceRunningStatus.ServiceStatus);
-
-            // Retrieve service handle
-            WindowsServiceLifetime windowsServiceLifetime = (WindowsServiceLifetime) _hostLifetime;
-
-            // We need to do some reflection magic, because the field is protected.
-            // See issue:
-            IntPtr serviceHandle = GetServiceHandle(windowsServiceLifetime) ??
-                                   throw new ArgumentNullException(nameof(serviceHandle),
-                                       "Cannot get Service Handle. Result is null");
+            
+            // Register our own service control handler
+            if (Advapi32.RegisterServiceCtrlHandlerEx(_windowsServiceLifetime.ServiceName, _serviceControlHandler, IntPtr.Zero) ==
+                0)
+                throw new Win32Exception("Registering service control handler failed.");
 
             // Register lid event
-            bool status = _lid.RegisterLidEventNotifications(serviceHandle, windowsServiceLifetime.ServiceName,
-                _powerManagementStateMachine.OnLidChange);
-
-            // Throw exception if register lid event failed
-            if (!status)
-            {
-                throw new ApplicationException("Cannot register lid event notification");
-            }
+            _lid.LidStateChanged += (sender, args) => _powerManagementStateMachine.OnLidChange(args.LidOpen);
+            _lid.RegisterLidEventNotifications(_serviceHandle, _windowsServiceLifetime.ServiceName);
 
             // Register Network Cable event
             _networkAdapters.OnNetworkAdaptersStatusChange += _powerManagementStateMachine.OnNetworkChange;
@@ -80,9 +94,8 @@ namespace AutoPowerManagementForShelfDevices
 
             _logger.LogInformation("Service is ready to process events");
 
-            stoppingToken.Register(s => tcs.SetResult(true), tcs);
-
-            return tcs.Task;
+            await using CancellationTokenRegistration stoppingRegistration = stoppingToken.Register(s => tcs.SetResult(true), tcs);
+            await tcs.Task;
         }
 
         public override Task StopAsync(CancellationToken cancellationToken)
@@ -94,15 +107,25 @@ namespace AutoPowerManagementForShelfDevices
             return Task.CompletedTask;
         }
 
-        private IntPtr? GetServiceHandle(WindowsServiceLifetime windowsServiceLifetime)
+        private IntPtr GetServiceHandle()
         {
-            FieldInfo field = windowsServiceLifetime.GetType().BaseType?
+            FieldInfo? field = _windowsServiceLifetime.GetType().BaseType?
                 .GetField("_statusHandle", BindingFlags.Instance | BindingFlags.NonPublic);
-
             if (field == null)
-                return null;
+                throw new ApplicationException("Cannot retrieve status handle from windows service lifetime.");
 
-            return (IntPtr?) field.GetValue(windowsServiceLifetime);
+            return (IntPtr) (field.GetValue(_windowsServiceLifetime) ?? throw new ApplicationException("Service handle must not be null."));
+        }
+
+        private int HandleServiceControlEvents(int dwControl, int dwEventType, IntPtr lpEventData, IntPtr lpContext)
+        {
+            int status = _lid.HandleLidEvents(dwControl, dwEventType, lpEventData, lpContext);
+
+            // Forward to base handler
+            if (status == WindowsErrorCodes.CallNotImplemented)
+                status = _baseServiceControlHandler.Invoke(dwControl, dwEventType, lpEventData, lpContext);
+
+            return status;
         }
     }
 }

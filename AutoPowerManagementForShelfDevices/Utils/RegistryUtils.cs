@@ -10,13 +10,12 @@ namespace AutoPowerManagementForShelfDevices.Utils
         {
             try
             {
-                object value = baseKey.GetValue(requestedValue);
-
+                object? value = baseKey.GetValue(requestedValue);
                 if (value == null)
                     return defaultValue;
 
                 TypeConverter converter = TypeDescriptor.GetConverter(typeof(T));
-                return (T) converter.ConvertFromString(value.ToString());
+                return ((T) converter.ConvertFromString(value.ToString()))!;
             }
             catch (NotSupportedException)
             {

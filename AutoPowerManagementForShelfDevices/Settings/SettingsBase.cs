@@ -1,5 +1,4 @@
-﻿using System;
-using System.Timers;
+﻿using System.Timers;
 
 namespace AutoPowerManagementForShelfDevices.Settings
 {
@@ -11,14 +10,14 @@ namespace AutoPowerManagementForShelfDevices.Settings
         protected const double DefaultTimeoutLoggedOutNetworkAttached = 5 * 60 * 1000;
      
         private const double RefreshSettingsInterval = 15 * 60 * 1000;
-        
+
         public abstract double TimeoutLidClosed { get; protected set; }
         public abstract double TimeoutLidClosedNetworkAttached { get; protected set; }
         public abstract double TimeoutLoggedOut { get; protected set; }
         public abstract double TimeoutLoggedOutNetworkAttached { get; protected set; }
-
+        
         private Timer _timer;
-
+        
         protected SettingsBase()
         {
             _timer = new Timer(RefreshSettingsInterval);
@@ -26,7 +25,7 @@ namespace AutoPowerManagementForShelfDevices.Settings
             _timer.AutoReset = true;
             _timer.Enabled = true;
         }
-
+        
         public abstract void Load();
 
         protected abstract void Refresh();

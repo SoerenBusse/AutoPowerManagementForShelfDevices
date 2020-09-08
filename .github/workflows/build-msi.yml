@@ -29,7 +29,7 @@ jobs:
       run: dotnet publish -r win-x64 -c Release /p:PublishSingleFile=true
     - name: Build MSI
       run: |
-        cmd /c '"%WIX%bin\candle.exe" Installer\*.wxs -out Installer\Installer.wix.obj -dTargetDir="AutoPowerManagementForShelfDevices\bin\Release\netcoreapp5.0\win-x64\publish"'
+        cmd /c '"%WIX%bin\candle.exe" Installer\*.wxs -out Installer\Installer.wix.obj -dTargetDir="AutoPowerManagementForShelfDevices\bin\Release\net5.0\win-x64\publish"'
         cmd /c 'md Installer\bin'
         cmd /c '"%WIX%bin\light.exe" -b "Installer\bin" -out "Installer\bin\AutoPowerManagementForShelfDevice.msi" Installer\Installer.wix.obj'
     - uses: actions/upload-artifact@v2

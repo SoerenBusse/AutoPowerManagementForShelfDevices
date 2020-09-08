@@ -1,145 +1,76 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 using System.Runtime.InteropServices;
+using AutoPowerManagementForShelfDevices.Interop.Native;
 
 namespace AutoPowerManagementForShelfDevices.Interop
 {
     public static class Logout
     {
-        [DllImport("wtsapi32.dll", SetLastError = true)]
-        static extern bool WTSLogoffSession(IntPtr hServer, int sessionId, bool bWait);
-
-        [DllImport("Wtsapi32.dll")]
-        static extern bool WTSQuerySessionInformation(System.IntPtr hServer, int sessionId, WtsInfoClass wtsInfoClass,
-            out System.IntPtr ppBuffer, out uint pBytesReturned);
-
-        [DllImport("wtsapi32.dll", SetLastError = true)]
-        static extern IntPtr WTSOpenServer([MarshalAs(UnmanagedType.LPStr)] String pServerName);
-
-        [DllImport("wtsapi32.dll")]
-        static extern void WTSCloseServer(IntPtr hServer);
-
-        [DllImport("wtsapi32.dll", SetLastError = true)]
-        static extern Int32 WTSEnumerateSessions(IntPtr hServer, [MarshalAs(UnmanagedType.U4)] Int32 reserved,
-            [MarshalAs(UnmanagedType.U4)] Int32 version, ref IntPtr ppSessionInfo,
-            [MarshalAs(UnmanagedType.U4)] ref Int32 pCount);
-
-        [DllImport("wtsapi32.dll")]
-        static extern void WTSFreeMemory(IntPtr pMemory);
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct WtsSessionInfo
-        {
-            public Int32 SessionId;
-            [MarshalAs(UnmanagedType.LPStr)] public String WinStationName;
-            public WtsConnectStateClass State;
-        }
-
-        enum WtsConnectStateClass
-        {
-            WtsActive,
-            WtsConnected,
-            WtsConnectQuery,
-            WtsShadow,
-            WtsDisconnected,
-            WtsIdle,
-            WtsListen,
-            WtsReset,
-            WtsDown,
-            WtsInit
-        }
-
-        enum WtsInfoClass
-        {
-            WtsInitialProgram,
-            WtsApplicationName,
-            WtsWorkingDirectory,
-            WtsOemId,
-            WtsSessionId,
-            WtsUserName,
-            WtsWinStationName,
-            WtsDomainName,
-            WtsConnectState,
-            WtsClientBuildNumber,
-            WtsClientName,
-            WtsClientDirectory,
-            WtsClientProductId,
-            WtsClientHardwareId,
-            WtsClientAddress,
-            WtsClientDisplay,
-            WtsClientProtocolType,
-            WtsIdleTime,
-            WtsLogonTime,
-            WtsIncomingBytes,
-            WtsOutgoingBytes,
-            WtsIncomingFrames,
-            WtsOutgoingFrames,
-            WtsClientInfo,
-            WtsSessionInfo
-        }
+        private static readonly int[] WellKnownSessionIds = {0, 65536};
 
         public static void LogoutAllUsers()
         {
             // Open local server
-            IntPtr server = WTSOpenServer(Environment.MachineName);
+            IntPtr server = Wtsapi32.WtsOpenServer(Environment.MachineName);
 
-            // Get user sessions and logout each user
-            foreach (int sessionId in GetSessionIDs(server))
+            try
             {
-                // Ignore well-known sessions
-                if(sessionId == 0 || sessionId == 65536)
-                    continue;
+                // Get user sessions and logout each user
+                foreach (int sessionId in GetSessionIDs(server).Where(id => !WellKnownSessionIds.Contains(id)))
+                {
+                    // Get Username
+                    string? username = GetUsername(server, sessionId);
+                    if (string.IsNullOrWhiteSpace(username))
+                        continue;
 
-                // Get Username
-                string username = GetUsername(server, sessionId);
-                if (string.IsNullOrWhiteSpace(username))
-                    continue;
-
-                WTSLogoffSession(server, sessionId, false);
+                    Wtsapi32.WtsLogoffSession(server, sessionId, false);
+                }
+            }
+            finally
+            {
+                Wtsapi32.WtsCloseServer(server);
             }
         }
 
         public static bool AreAllUsersLoggedOut()
         {
             // Open local server
-            IntPtr server = WTSOpenServer(Environment.MachineName);
-
-            // Get user sessions and logout each user
-            return GetSessionIDs(server).Count == 0;
-        }
-
-        private static string GetUsername(IntPtr server, int sessionId)
-        {
-            IntPtr buffer = IntPtr.Zero;
-            uint bufferSize = 0;
-
-            string username;
-
+            IntPtr server = Wtsapi32.WtsOpenServer(Environment.MachineName);
             try
             {
-                bool status = WTSQuerySessionInformation(server, sessionId, WtsInfoClass.WtsUserName, out buffer,
-                    out bufferSize);
-
-                // Check is method returns success
-                if (!status)
-                {
-                    return null;
-                }
-
-                username = Marshal.PtrToStringAnsi(buffer)?.ToUpper().Trim();
+                // Get user sessions and logout each user
+                return GetSessionIDs(server).All(id => WellKnownSessionIds.Contains(id));
             }
             finally
             {
-                WTSFreeMemory(buffer);
+                Wtsapi32.WtsCloseServer(server);
             }
-
-            return username;
         }
 
-        private static List<int> GetSessionIDs(IntPtr server)
+        private static string? GetUsername(IntPtr server, int sessionId)
         {
-            List<int> sessionIds = new List<int>();
+            IntPtr buffer = IntPtr.Zero;
 
+            try
+            {
+                // Check is method returns success
+                if (!Wtsapi32.WtsQuerySessionInformation(server, sessionId, Wtsapi32.WtsInfoClass.WtsUserName, out buffer,
+                    out uint _))
+                    return null;
+
+                return Marshal.PtrToStringAnsi(buffer)?.ToUpper().Trim();
+            }
+            finally
+            {
+                Wtsapi32.WtsFreeMemory(buffer);
+            }
+        }
+
+        private static IEnumerable<int> GetSessionIDs(IntPtr server)
+        {
             // Buffer which contains the SessionInfo structs
             IntPtr buffer = IntPtr.Zero;
 
@@ -149,31 +80,28 @@ namespace AutoPowerManagementForShelfDevices.Interop
             // Retrieve all sessions
             try
             {
-                int status = WTSEnumerateSessions(server, 0, 1, ref buffer, ref count);
+                if (!Wtsapi32.WtsEnumerateSessions(server, 0, 1, ref buffer, ref count))
+                    throw new Win32Exception("Cannot enumerate wts sessions.");
 
                 // Set start of memory location to buffer beginning
                 IntPtr currentIndex = buffer;
 
-                if (status != 0)
+                // Iterate over all sessions
+                for (int i = 0; i < count; i++)
                 {
-                    // Iterate over all sessions
-
-                    for (int i = 0; i < count; i++)
-                    {
-                        WtsSessionInfo sessionInfo =
-                            (WtsSessionInfo) Marshal.PtrToStructure(currentIndex, typeof(WtsSessionInfo));
-                        currentIndex += Marshal.SizeOf(typeof(WtsSessionInfo));
-                        sessionIds.Add(sessionInfo.SessionId);
-                    }
+                    var sessionInfo = (Wtsapi32.WtsSessionInfo?) Marshal.PtrToStructure(currentIndex, typeof(Wtsapi32.WtsSessionInfo));
+                    if (sessionInfo == null)
+                        throw new Win32Exception(
+                            "Cannot not marshal session info structure.");
+                    currentIndex += Marshal.SizeOf(typeof(Wtsapi32.WtsSessionInfo));
+                    yield return sessionInfo.Value.SessionId;
                 }
             }
             finally
             {
                 // Free memory buffer
-                WTSFreeMemory(buffer);
+                Wtsapi32.WtsFreeMemory(buffer);
             }
-
-            return sessionIds;
         }
     }
 }
