@@ -20,10 +20,10 @@ namespace AutoPowerManagementForShelfDevices
         private readonly Lid _lid;
         private readonly NetworkAdapters _networkAdapters;
         private readonly ServiceRunningStatus _serviceRunningStatus;
-        
+
         private readonly WindowsServiceLifetime _windowsServiceLifetime;
         private readonly IntPtr _serviceHandle;
-        
+
         private readonly Advapi32.ServiceControlHandlerEx _serviceControlHandler;
         private readonly Advapi32.ServiceControlHandlerEx _baseServiceControlHandler;
 
@@ -48,7 +48,7 @@ namespace AutoPowerManagementForShelfDevices
 
             // Retrieve service handle
             _serviceHandle = GetServiceHandle();
-            
+
             // Get access to service control handler of the ServiceBase class
             MethodInfo? baseServiceControlHandlerMethod = windowsServiceLifetime.GetType().BaseType?.GetMethod(
                 "ServiceCommandCallbackEx",
@@ -74,9 +74,10 @@ namespace AutoPowerManagementForShelfDevices
             // Check service running status and apply current status to state machine
             _serviceRunningStatus.InitStatus();
             _powerManagementStateMachine.OnServiceRunningStatusUpdate(_serviceRunningStatus.ServiceStatus);
-            
+
             // Register our own service control handler
-            if (Advapi32.RegisterServiceCtrlHandlerEx(_windowsServiceLifetime.ServiceName, _serviceControlHandler, IntPtr.Zero) ==
+            if (Advapi32.RegisterServiceCtrlHandlerEx(_windowsServiceLifetime.ServiceName, _serviceControlHandler,
+                    IntPtr.Zero) ==
                 0)
                 throw new Win32Exception("Registering service control handler failed.");
 
@@ -85,14 +86,16 @@ namespace AutoPowerManagementForShelfDevices
             _lid.RegisterLidEventNotifications(_serviceHandle, _windowsServiceLifetime.ServiceName);
 
             // Register Network Cable event
-            _networkAdapters.OnNetworkAdaptersStatusChange += _powerManagementStateMachine.OnNetworkChange;
+            _networkAdapters.NetworkAdaptersStatusChanged += (sender, args) =>
+                _powerManagementStateMachine.OnNetworkChange(args.IsAttached);
 
             // Initialize network updaters with current computers network state  
             _networkAdapters.Init();
 
             _logger.LogInformation("Service is ready to process events");
 
-            await using CancellationTokenRegistration stoppingRegistration = stoppingToken.Register(s => tcs.SetResult(true), tcs);
+            await using CancellationTokenRegistration stoppingRegistration =
+                stoppingToken.Register(s => tcs.SetResult(true), tcs);
             await tcs.Task;
         }
 
@@ -100,7 +103,6 @@ namespace AutoPowerManagementForShelfDevices
         {
             _logger.LogInformation("Service will exit. Cleanup...");
             _lid.UnregisterLidEventNotifications();
-            _networkAdapters.OnNetworkAdaptersStatusChange -= _powerManagementStateMachine.OnNetworkChange;
 
             return Task.CompletedTask;
         }
@@ -112,7 +114,8 @@ namespace AutoPowerManagementForShelfDevices
             if (field == null)
                 throw new ApplicationException("Cannot retrieve status handle from windows service lifetime.");
 
-            return (IntPtr) (field.GetValue(_windowsServiceLifetime) ?? throw new ApplicationException("Service handle must not be null."));
+            return (IntPtr) (field.GetValue(_windowsServiceLifetime) ??
+                             throw new ApplicationException("Service handle must not be null."));
         }
 
         private int HandleServiceControlEvents(int dwControl, int dwEventType, IntPtr lpEventData, IntPtr lpContext)

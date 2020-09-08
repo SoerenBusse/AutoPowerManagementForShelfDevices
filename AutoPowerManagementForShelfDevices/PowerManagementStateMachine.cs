@@ -131,10 +131,10 @@ namespace AutoPowerManagementForShelfDevices
             _machine.Fire(lidOpen ? Trigger.LidOpen : Trigger.LidClose);
         }
 
-        public void OnNetworkChange(bool attached)
+        public void OnNetworkChange(bool isAttached)
         {
-            _logger.LogDebug($"Received event: OnNetworkChange with parameters attached: {attached}");
-            _machine.Fire(attached ? Trigger.NetworkAttach : Trigger.NetworkUnplug);
+            _logger.LogDebug($"Received event: OnNetworkChange with parameters attached: {isAttached}");
+            _machine.Fire(isAttached ? Trigger.NetworkAttach : Trigger.NetworkUnplug);
         }
 
         public void OnServiceRunningStatusUpdate(ServiceStatus serviceStatus)

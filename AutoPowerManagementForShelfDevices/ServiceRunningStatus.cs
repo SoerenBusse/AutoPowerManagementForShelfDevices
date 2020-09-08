@@ -27,10 +27,16 @@ namespace AutoPowerManagementForShelfDevices
 
             // If lastBootTime is empty it's the first start of this service
             if (lastUnixBootTimeInRegistry == 0)
+            {
                 ServiceStatus = ServiceStatus.FirstStart;
+                return;
+            }
 
             if (currentLastUnixBootTime == lastUnixBootTimeInRegistry)
+            {
                 ServiceStatus = ServiceStatus.Restarted;
+                return;
+            }
 
             ServiceStatus = ServiceStatus.StartedOnBoot;
         }

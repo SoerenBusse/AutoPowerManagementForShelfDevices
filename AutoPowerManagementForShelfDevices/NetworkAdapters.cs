@@ -1,3 +1,4 @@
+using System;
 using System.Net.NetworkInformation;
 using Microsoft.Extensions.Logging;
 
@@ -5,11 +6,9 @@ namespace AutoPowerManagementForShelfDevices
 {
     public class NetworkAdapters
     {
-        public delegate void NetworkAdaptersStatusChange(bool attached);
+        public event EventHandler<NetworkAdaptersStatusChangedEventArgs>? NetworkAdaptersStatusChanged;
 
-        public event NetworkAdaptersStatusChange OnNetworkAdaptersStatusChange;
-
-        private int _connectedPorts = 0;
+        private int _connectedPorts;
 
         private ILogger<NetworkAdapters> _logger;
 
@@ -46,14 +45,14 @@ namespace AutoPowerManagementForShelfDevices
             // If no network adapter is up, the cable is unplugged
             if (newConnectedPorts == 0 && _connectedPorts == 1)
             {
-                OnNetworkAdaptersStatusChange?.Invoke(false);
+                NetworkAdaptersStatusChanged?.Invoke(this, new NetworkAdaptersStatusChangedEventArgs(false));
                 _logger.LogInformation($"Sending status update event. Attached: false");
             }
 
             // Check if a new cable is plugged in, but only notify on first cable
             if (newConnectedPorts == 1 && _connectedPorts == 0)
             {
-                OnNetworkAdaptersStatusChange?.Invoke(true);
+                NetworkAdaptersStatusChanged?.Invoke(this, new NetworkAdaptersStatusChangedEventArgs(true));
                 _logger.LogInformation($"Sending status update event. Attached: true");
             }
 
