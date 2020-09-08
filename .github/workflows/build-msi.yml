@@ -1,0 +1,66 @@
+name: .NET Core
+
+on:
+  push:
+    branches:
+      - master
+      - ci
+  pull_request:
+    branches:
+      - master
+      - ci
+
+jobs:
+  build:
+    runs-on: windows-2019
+    env:
+      DOTNET_NOLOGO: true
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.100-preview.8.20417.9
+    - name: Install dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet publish -r win-x64 -c Release /p:PublishSingleFile=true
+    - name: Build MSI
+      run: |
+        cmd /c '"%WIX%bin\candle.exe" Installer\*.wxs -out Installer\Installer.wix.obj -dTargetDir="AutoPowerManagementForShelfDevices\bin\Release\netcoreapp5.0\win-x64\publish"'
+        cmd /c 'md Installer\bin'
+        cmd /c '"%WIX%bin\light.exe" -b "Installer\bin" -out "Installer\bin\AutoPowerManagementForShelfDevice.msi" Installer\Installer.wix.obj'
+    - uses: actions/upload-artifact@v2
+      with:
+        name: MSIPublish
+        path: Installer\bin\AutoPowerManagementForShelfDevice.msi
+  
+  create-release:
+    runs-on: windows-2019
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download math result for job 1
+        uses: actions/download-artifact@v2
+        with:
+          name: MSIPublish
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} 
+          asset_path: Installer\bin\AutoPowerManagementForShelfDevice.msi
+          asset_name: AutoPowerManagementForShelfDevice.msi
+          asset_content_type: application/x-msi
