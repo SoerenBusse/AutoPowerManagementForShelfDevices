@@ -1,4 +1,5 @@
 ﻿using System;
+using AutoPowerManagementForShelfDevices.Utils;
 using Microsoft.Win32;
 
 namespace AutoPowerManagementForShelfDevices.Settings
@@ -45,33 +46,20 @@ namespace AutoPowerManagementForShelfDevices.Settings
             if (baseKey == null)
                 return;
 
-            TimeoutLidClosed = ParseRegistryKey(baseKey, RegistryTimeoutLidClosedKey,
+            TimeoutLidClosed = RegistryUtils.ParseRegistryKey(baseKey, RegistryTimeoutLidClosedKey,
                 DefaultTimeoutLidClosed);
-            
 
-            TimeoutLidClosedNetworkAttached = ParseRegistryKey(baseKey, RegistryTimeoutLidClosedNetworkAttachedKey,
+
+            TimeoutLidClosedNetworkAttached = RegistryUtils.ParseRegistryKey(baseKey,
+                RegistryTimeoutLidClosedNetworkAttachedKey,
                 DefaultTimeoutLidClosedNetworkAttached);
 
-            TimeoutLoggedOut = ParseRegistryKey(baseKey, RegistryTimeoutLoggedOutKey, DefaultTimeoutLoggedOut);
+            TimeoutLoggedOut =
+                RegistryUtils.ParseRegistryKey(baseKey, RegistryTimeoutLoggedOutKey, DefaultTimeoutLoggedOut);
 
-            TimeoutLoggedOutNetworkAttached = ParseRegistryKey(baseKey, RegistryTimeoutLoggedOutNetworkAttachedKey,
+            TimeoutLoggedOutNetworkAttached = RegistryUtils.ParseRegistryKey(baseKey,
+                RegistryTimeoutLoggedOutNetworkAttachedKey,
                 DefaultTimeoutLoggedOutNetworkAttached);
-        }
-
-        private static double ParseRegistryKey(RegistryKey baseKey, string requestedValue, double defaultValue)
-        {
-            var value = baseKey.GetValue(requestedValue);
-
-            if (value == null)
-                return defaultValue;
-
-            if (double.TryParse(value.ToString(), out var d))
-            {
-                return d;
-            }
-
-            throw new ArgumentException(requestedValue,
-                $"The registry key {requestedValue} cannot be converted to double");
         }
     }
 }

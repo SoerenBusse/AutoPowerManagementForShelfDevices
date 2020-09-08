@@ -29,8 +29,46 @@ namespace AutoPowerManagementForShelfDevices
             };
 
             // Create PowerManagement State machine
-            _machine = new StateMachine<State, Trigger>(State.LidOpen);
+            _machine = new StateMachine<State, Trigger>(State.Start);
 
+            // States for handling wake on lan with closed lid to prevent automatic shutdown
+            _machine.Configure(State.Start)
+                .Permit(Trigger.ServiceStartedOnBoot, State.Boot)
+                .Permit(Trigger.ServiceFirstStart, State.LidOpen)
+                .Permit(Trigger.ServiceRestarted, State.LidOpen)
+                .Permit(Trigger.NetworkAttach, State.StartNetworkAttached)
+                .OnEntry(() => LogState(State.Start));
+
+            _machine.Configure(State.StartNetworkAttached)
+                .Permit(Trigger.ServiceStartedOnBoot, State.BootNetworkAttached)
+                .Permit(Trigger.ServiceRestarted, State.LidOpenNetworkAttached)
+                .Permit(Trigger.ServiceFirstStart, State.LidOpenNetworkAttached)
+                .Permit(Trigger.NetworkUnplug, State.Start)
+                .OnEntry(() => LogState(State.StartNetworkAttached));
+
+            _machine.Configure(State.Boot)
+                .Permit(Trigger.LidClose, State.WoLWait)
+                .Permit(Trigger.LidOpen, State.LidOpen)
+                .Permit(Trigger.NetworkAttach, State.BootNetworkAttached)
+                .OnEntry(() => LogState(State.Boot));
+
+            _machine.Configure(State.BootNetworkAttached)
+                .Permit(Trigger.LidClose, State.WoLWaitNetworkAttached)
+                .Permit(Trigger.LidOpen, State.LidOpenNetworkAttached)
+                .Permit(Trigger.NetworkUnplug, State.Boot)
+                .OnEntry(() => LogState(State.BootNetworkAttached));
+
+            _machine.Configure(State.WoLWait)
+                .Permit(Trigger.LidOpen, State.LidOpen)
+                .Permit(Trigger.NetworkAttach, State.WoLWaitNetworkAttached)
+                .OnEntry(() => LogState(State.WoLWait));
+
+            _machine.Configure(State.WoLWaitNetworkAttached)
+                .Permit(Trigger.LidOpen, State.LidOpenNetworkAttached)
+                .Permit(Trigger.NetworkUnplug, State.WoLWait)
+                .OnEntry(() => LogState(State.WoLWaitNetworkAttached));
+
+            // Main states
             _machine.Configure(State.LidOpen)
                 .Permit(Trigger.LidClose, State.LidClosed)
                 .Permit(Trigger.NetworkAttach, State.LidOpenNetworkAttached)
@@ -111,6 +149,26 @@ namespace AutoPowerManagementForShelfDevices
             }
 
             _machine.Fire(Trigger.NetworkUnplug);
+        }
+
+        public void OnServiceRunningStatusUpdate(ServiceStatus serviceStatus)
+        {
+            _logger.LogDebug($"Received event: OnServiceRunningStatusUpdate: {Enum.GetName(serviceStatus)}");
+
+            switch (serviceStatus)
+            {
+                case ServiceStatus.FirstStart:
+                    _machine.Fire(Trigger.ServiceFirstStart);
+                    break;
+                case ServiceStatus.Restarted:
+                    _machine.Fire(Trigger.ServiceRestarted);
+                    break;
+                case ServiceStatus.StartedOnBoot:
+                    _machine.Fire(Trigger.ServiceStartedOnBoot);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(serviceStatus), serviceStatus, null);
+            }
         }
 
         public string GetUmlDotGraph()

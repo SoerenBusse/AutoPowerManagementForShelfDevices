@@ -34,6 +34,7 @@ namespace AutoPowerManagementForShelfDevices
                 services.AddSingleton<Lid>();
                 services.AddSingleton<NetworkAdapters>();
                 services.AddSingleton<SettingsBase, RegistrySettings>();
+                services.AddSingleton<ServiceRunningStatus>();
             });
 
             hostBuilder.ConfigureLogging(loggerFactory => loggerFactory.AddEventLog());

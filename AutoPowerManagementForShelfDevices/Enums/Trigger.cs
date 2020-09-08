@@ -6,6 +6,9 @@ namespace AutoPowerManagementForShelfDevices.Enums
         LidClose,
         NetworkAttach,
         NetworkUnplug,
-        TimerExpired
+        TimerExpired,
+        ServiceStartedOnBoot,
+        ServiceFirstStart,
+        ServiceRestarted
     }
 }

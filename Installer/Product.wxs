@@ -19,6 +19,7 @@
 			<ComponentRef Id="ComponentCLRJit" />
 			<ComponentRef Id="ComponentCoreCLR" />
 			<ComponentRef Id="ComponentMSCordaCore" />
+			<ComponentRef Id="ComponentSNI" />
 		</Feature>
 	</Product>
 
@@ -39,6 +40,9 @@
 					</Component>
 					<Component Id="ComponentMSCordaCore" Guid="{2FAF9D7A-099A-4354-93E5-19F7EB962580}">
 						<File Id="MSCordaCoreFile" KeyPath="yes" Source="$(var.TargetDir)\mscordaccore.dll" />
+					</Component>
+					<Component Id="ComponentSNI" Guid="{43b8aeac-3c0f-4351-a3d2-f192bb888b8c}">
+						<File Id="SNIFile" KeyPath="yes" Source="$(var.TargetDir)\sni.dll" />
 					</Component>
             </Directory>
         </DirectoryRef>
