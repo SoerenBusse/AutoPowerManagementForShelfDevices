@@ -139,7 +139,7 @@ namespace AutoPowerManagementForShelfDevices
 
         public void OnServiceRunningStatusUpdate(ServiceStatus serviceStatus)
         {
-            _logger.LogDebug($"Received event: OnServiceRunningStatusUpdate: {Enum.GetName(serviceStatus)}");
+            _logger.LogDebug($"Received event: OnServiceRunningStatusUpdate: {serviceStatus}");
 
             switch (serviceStatus)
             {
@@ -171,7 +171,7 @@ namespace AutoPowerManagementForShelfDevices
 
         private void LogState(State state)
         {
-            _logger.LogDebug($"Entering {Enum.GetName(state)} state");
+            _logger.LogDebug($"Entering {state} state");
         }
     }
 }
