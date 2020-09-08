@@ -2,4 +2,4 @@
 Tool which automatically handels the power management for mobile notebooks.
 
 ## State Machine
-![State Machine Overview](images/statemachine.png "State Machine")
+![State Machine Overview](Images/statemachine.png "State Machine")
