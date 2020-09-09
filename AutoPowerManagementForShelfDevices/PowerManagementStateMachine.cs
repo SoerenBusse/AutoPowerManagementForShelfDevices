@@ -113,9 +113,16 @@ namespace AutoPowerManagementForShelfDevices
                 .OnEntry(PowerControl.ForceShutdownLocalMachine);
 
             _machine.Configure(State.Sleep)
+                .Permit(Trigger.LidOpen, State.LidOpen)
+                .Permit(Trigger.NetworkAttach, State.SleepNetworkAttached)
                 .OnEntry(() => LogState(State.Sleep))
                 .OnEntry(PowerControl.SleepLocalMachine);
 
+            _machine.Configure(State.SleepNetworkAttached)
+                .Permit(Trigger.LidOpen, State.LidOpenNetworkAttached)
+                .Permit(Trigger.NetworkUnplug, State.Sleep)
+                .OnEntry(() => LogState(State.SleepNetworkAttached));
+                
             // Ignore invalid triggers for state
             // Our machine isn't a complete DFA
             _machine.OnUnhandledTrigger((state, trigger) => { });

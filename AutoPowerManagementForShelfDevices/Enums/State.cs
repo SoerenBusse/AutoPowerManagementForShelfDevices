@@ -19,6 +19,7 @@ namespace AutoPowerManagementForShelfDevices.Enums
         LoggedOut,
         LoggedOutNetworkAttached,
         Shutdown,
-        Sleep
+        Sleep,
+        SleepNetworkAttached
     }
 }
